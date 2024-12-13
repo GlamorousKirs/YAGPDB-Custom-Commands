@@ -1,0 +1,72 @@
+{{$EMBED_COLOR := 0xFFFBB0}}
+{{$STARBOARD_CHANNEL_ID := 1316157169221242971}}
+{{$STAR_EMOJI := "⭐"}}
+{{$FEATURED_STAR_EMOJI := "💫"}}
+{{$THRESHOLD := 10}}
+{{$REWARD_ROLE_ENABLED := true}}
+{{$REWARD_ROLE := 1316388547384840225}}
+{{$NOTIFY_AUTHOR := true}}
+
+{{$embed := sdict
+    "description" (print $.Message.Content "\n\n-# " $.Message.Link)
+    "color" $EMBED_COLOR
+    "author" (sdict "name" $.Message.Author.Username "icon_url" ($.Message.Author.AvatarURL "512"))
+    "footer" (sdict "text" (print $THRESHOLD " stars") "icon_url" "https://media.tenor.com/vafOLwS0j0sAAAAi/star-yıldız.gif")
+}}
+
+{{if $.Message.Attachments}}
+    {{$embed.Set "image" (sdict "url" (index $.Message.Attachments 0).URL)}}
+{{end}}
+
+{{$hasStarReaction := false}}
+{{$hasGlowingStar := false}}
+{{range .Message.Reactions}}
+    {{if eq .Emoji.APIName $STAR_EMOJI}} {{$hasStarReaction = ge .Count $THRESHOLD}} {{end}}
+    {{if eq .Emoji.APIName $FEATURED_STAR_EMOJI}} {{$hasGlowingStar = true}} {{end}}
+{{end}}
+
+{{if not (eq .Channel.ID $STARBOARD_CHANNEL_ID)}}
+    {{if $.Message.Embeds}} {{return}} {{end}}
+    {{if $hasStarReaction}}
+        {{if not $hasGlowingStar}}
+            {{if $REWARD_ROLE_ENABLED}} {{giveRoleID $.Message.Author.ID $REWARD_ROLE}} {{end}}
+            {{$msgID := sendMessageRetID $STARBOARD_CHANNEL_ID (complexMessage "content" (print "_ _ \n## " $FEATURED_STAR_EMOJI " STARRED") "embed" (cembed $embed))}}
+            {{addMessageReactions $STARBOARD_CHANNEL_ID $msgID $STAR_EMOJI}}
+            {{deleteAllMessageReactions nil $.Message.ID $STAR_EMOJI}}
+            {{addReactions $FEATURED_STAR_EMOJI}}
+            {{if $NOTIFY_AUTHOR}}
+                {{$featuredLink := print "https://discord.com/channels/" $.Guild.ID "/" $STARBOARD_CHANNEL_ID "/" $msgID}}
+                {{$gotFeaturedEmbed := sdict
+                    "color" 0x2B2D31
+                    "description" (print "### Featured on " $featuredLink "\n\n>>> " $.Message.Content)
+                    "footer" (sdict "text" $.Message.Author.Username "icon_url" ($.Message.Author.AvatarURL "512"))
+                }}
+                {{if $.Message.Attachments}} {{$gotFeaturedEmbed.Set "image" (sdict "url" (index $.Message.Attachments 0).URL)}} {{end}}
+                {{sendMessage nil (complexMessage "embed" $gotFeaturedEmbed "content" (print "_ _\n-# Content by " $.Message.Author.Mention))}}
+            {{end}}
+        {{else}}
+            {{deleteMessageReaction nil $.Message.ID $.User.ID $STAR_EMOJI}}
+        {{end}}
+    {{else if eq .Reaction.Emoji.APIName $STAR_EMOJI}} {{if $hasGlowingStar}} {{deleteMessageReaction nil $.Message.ID $.User.ID $STAR_EMOJI}} {{end}}
+    {{else if eq .Reaction.Emoji.APIName $FEATURED_STAR_EMOJI}} {{deleteMessageReaction nil $.Message.ID $.User.ID $FEATURED_STAR_EMOJI}}
+    {{end}}
+{{end}}
+
+{{if eq .Channel.ID $STARBOARD_CHANNEL_ID}}
+    {{range .Message.Reactions}}
+        {{if eq .Emoji.APIName $STAR_EMOJI}}
+            {{$currentCount := sub (add .Count $THRESHOLD) 1}}
+            {{if lt $currentCount $THRESHOLD}} {{return}} {{end}}
+            {{$existingMessage := getMessage $STARBOARD_CHANNEL_ID $.Message.ID}}
+            {{$existingEmbed := index $existingMessage.Embeds 0}}
+            {{$updatedEmbed := cembed
+                "description" $existingEmbed.Description
+                "color" $existingEmbed.Color
+                "author" $existingEmbed.Author
+                "footer" (sdict "text" (print $currentCount " stars") "icon_url" "https://media.tenor.com/vafOLwS0j0sAAAAi/star-yıldız.gif")
+                "image" $existingEmbed.Image
+            }}
+            {{editMessage nil $existingMessage.ID $updatedEmbed}}
+        {{end}}
+    {{end}}
+{{end}}
