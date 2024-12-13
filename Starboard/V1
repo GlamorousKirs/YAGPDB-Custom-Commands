@@ -7,6 +7,14 @@
 {{$REWARD_ROLE := 1316388547384840225}}
 {{$NOTIFY_AUTHOR := true}}
 
+{{/*
+        STARBOARD V1
+        By @glamorouskirs
+        Github: https://github.com/GlamorousKirs/YAGPDB-Custom-Commands
+
+        Trigger type: Reaction (Added + Removed reactions)
+*/}}
+
 {{$embed := sdict
     "description" (print $.Message.Content "\n\n-# " $.Message.Link)
     "color" $EMBED_COLOR
@@ -25,6 +33,7 @@
     {{if eq .Emoji.APIName $FEATURED_STAR_EMOJI}} {{$hasGlowingStar = true}} {{end}}
 {{end}}
 
+{{/* Handle messages outside of the starboard channel */}}
 {{if not (eq .Channel.ID $STARBOARD_CHANNEL_ID)}}
     {{if $.Message.Embeds}} {{return}} {{end}}
     {{if $hasStarReaction}}
@@ -52,6 +61,7 @@
     {{end}}
 {{end}}
 
+{{/* Handle messages inside the starboard channel */}}
 {{if eq .Channel.ID $STARBOARD_CHANNEL_ID}}
     {{range .Message.Reactions}}
         {{if eq .Emoji.APIName $STAR_EMOJI}}
